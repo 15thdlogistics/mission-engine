@@ -2,22 +2,18 @@ name = "mission-worker"
 main = "src/index.js"
 compatibility_date = "2024-11-01"
 
-# Durable Object namespace for env.MISSION_STATE
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["MissionState"]
+
 [[durable_objects.bindings]]
 name = "MISSION_STATE"
-class_name = "MissionState"      # must match your DO class export
+class_name = "MissionState"
 
-# If the Durable Object is in another worker script, also add:
-# script_name = "mission-state-worker"
-
-# Service binding for env["icc-pivot-engine"]
 [[services]]
 binding = "icc-pivot-engine"
-service = "icc-pivot-engine"     # target Worker name
-# environment = "production"     # optional
+service = "icc-pivot-engine"
 
-# Service binding for env["mission-comms"]
 [[services]]
 binding = "mission-comms"
 service = "mission-comms"
-# environment = "production"     # optional
