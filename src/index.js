@@ -30,7 +30,7 @@ export default {
                                                                 await updateMission(updated, env);
 
                                                                   ctx.waitUntil(
-                                                                      env[“icc-pivot-engine”].fetch("https://icc-pivot-engine/evaluate", {
+                                                                      env["icc-pivot-engine"].fetch("https://icc-pivot-engine/evaluate", {
                                                                             method: "POST",
                                                                                   body: JSON.stringify({ mission_id })
                                                                                       })
