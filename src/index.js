@@ -1,79 +1,110 @@
-
 export default {
-    async fetch(request, env, ctx) {
-        const url = new URL(request.url);
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
 
-            if (request.method === "POST" && url.pathname === "/mission/event") {
-                  const body = await request.json();
-                        return handleEvent(body, env, ctx);
-                            }
+    if (request.method === "POST" && url.pathname === "/mission/event") {
+      const body = await request.json();
+      return handleEvent(body, env, ctx);
+    }
 
-                                return new Response("Not Found", { status: 404 });
-                                  }
-                                  };
+    return new Response("Not Found", { status: 404 });
+  }
+};
 
-                                  async function handleEvent(input, env, ctx) {
-                                    const { mission_id, event_type } = input;
+/* =========================================================
+   EVENT HANDLER
+========================================================= */
 
-                                      if (!mission_id || !event_type) {
-                                          return json({ error: "invalid payload" }, 400);
-                                            }
+async function handleEvent(input, env, ctx) {
+  const { mission_id, event_type } = input;
 
-                                              const mission = await getMission(mission_id, env);
+  if (!mission_id || !event_type) {
+    return json({ error: "invalid payload" }, 400);
+  }
 
-                                                const updated = {
-                                                    ...mission,
-                                                        last_event: event_type,
-                                                            updated_at: Date.now()
-                                                              };
+  const mission = await getMission(mission_id, env);
 
-                                                                await updateMission(updated, env);
+  const updated = {
+    ...mission,
+    mission_id,
+    last_event: event_type,
+    updated_at: Date.now()
+  };
 
-                                                                  ctx.waitUntil(
-                                                                      env["icc-pivot-engine"].fetch("https://icc-pivot-engine/evaluate", {
-                                                                            method: "POST",
-                                                                                  body: JSON.stringify({ mission_id })
-                                                                                      })
-                                                                                        );
+  await updateMission(updated, env);
 
-                                                                                          ctx.waitUntil(
-                                                                                              env["mission-comms"].fetch("https://mission-comms/event", {
-                                                                                                    method: "POST",
-                                                                                                          body: JSON.stringify({
-                                                                                                                  mission_id,
-                                                                                                                          event: event_type
-                                                                                                                                })
-                                                                                                                                    })
-                                                                                                                                      );
+  /* =========================================
+     TRIGGER PIVOT ENGINE
+  ========================================= */
 
-                                                                                                                                        return json({
-                                                                                                                                            status: "EVENT_PROCESSED",
-                                                                                                                                                mission_id
-                                                                                                                                                  });
-                                                                                                                                                  }
+  ctx.waitUntil(
+    env["icc-pivot-engine"].fetch("https://icc-pivot-engine/evaluate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ mission_id })
+    })
+  );
 
-                                                                                                                                                  async function getMission(id, env) {
-                                                                                                                                                    const doId = env.MISSION_STATE.idFromName(id);
-                                                                                                                                                      const stub = env.MISSION_STATE.get(doId);
-                                                                                                                                                        const res = await stub.fetch("https://mission/state");
-                                                                                                                                                          return res.json();
-                                                                                                                                                          }
+  /* =========================================
+     BROADCAST EVENT
+  ========================================= */
 
-                                                                                                                                                          async function updateMission(mission, env) {
-                                                                                                                                                            const doId = env.MISSION_STATE.idFromName(mission.mission_id);
-                                                                                                                                                              const stub = env.MISSION_STATE.get(doId);
-                                                                                                                                                                await stub.fetch("https://mission/update", {
-                                                                                                                                                                    method: "POST",
-                                                                                                                                                                        body: JSON.stringify(mission)
-                                                                                                                                                                          });
-                                                                                                                                                                          }
+  ctx.waitUntil(
+    env["mission-comms"].fetch("https://mission-comms/event", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        mission_id,
+        event: event_type
+      })
+    })
+  );
 
-                                                                                                                                                                          function json(data, status = 200) {
-                                                                                                                                                                            return new Response(JSON.stringify(data), {
-                                                                                                                                                                                status,
-                                                                                                                                                                                    headers: { "Content-Type": "application/json" }
-                                                                                                                                                                                      });
-                                                                                                                                                                                      }
+  return json({
+    status: "EVENT_PROCESSED",
+    mission_id
+  });
+}
 
+/* =========================================================
+   MISSION STATE ACCESS
+========================================================= */
 
+async function getMission(id, env) {
+  const doId = env.MISSION_STATE.idFromName(id);
+  const stub = env.MISSION_STATE.get(doId);
 
+  const res = await stub.fetch("https://mission/mission/state");
+
+  return res.json();
+}
+
+async function updateMission(mission, env) {
+  const doId = env.MISSION_STATE.idFromName(mission.mission_id);
+  const stub = env.MISSION_STATE.get(doId);
+
+  await stub.fetch("https://mission/mission/update", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(mission)
+  });
+}
+
+/* =========================================================
+   RESPONSE HELPER
+========================================================= */
+
+function json(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      "Content-Type": "application/json"
+    }
+  });
+}
