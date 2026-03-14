@@ -4,7 +4,7 @@ compatibility_date = "2024-11-01"
 
 [[migrations]]
 tag = "v1"
-new_sqlite_classes = ["MissionState"]
+new_sqlite_classes = ["MissionState", "FleetState"]
 
 [[durable_objects.bindings]]
 name = "MISSION_STATE"
